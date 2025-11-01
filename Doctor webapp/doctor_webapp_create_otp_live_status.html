@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Doctor Console — Create Ticket & Live Status</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue-50: #f0f8ff; --blue-100: #e0f0ff; --blue-400: #74c1ed; --text-dark: #0f3d63; --text-light: #52525b;
+      --border-color: #e5e7eb; --success: #16a34a; --warning: #ca8a04; --error: #dc2626;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleUp { from { transform: scale(0.95); } to { transform: scale(1); } }
+    @keyframes slideInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes slideOutDown { to { transform: translateY(20px); opacity: 0; } }
+
+    body { font-family: 'Prompt', sans-serif; margin: 0; padding: 24px; background: linear-gradient(170deg, var(--blue-100) 0%, var(--blue-50) 100%); color: var(--text-dark); min-height: 100vh; }
+    .container { max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+    h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 16px; }
+    .card { border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; margin-bottom: 24px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); animation: fadeIn 0.5s ease-out, scaleUp 0.5s ease-out; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.875rem; color: var(--text-light); }
+    input { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; width: 100%; transition: all 0.2s ease; }
+    input:focus { outline: none; border-color: var(--blue-400); box-shadow: 0 0 0 3px var(--blue-100); }
+    button { cursor: pointer; background: var(--text-dark); color: #fff; padding: 12px; border: none; border-radius: 10px; width: 100%; font-weight: 700; transition: all 0.2s ease; }
+    button:hover { background: #334155; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    button:active { transform: translateY(0); box-shadow: none; }
+    .btn-secondary { background: var(--blue-50); color: var(--text-dark); border: 1px solid var(--border-color); }
+    .btn-secondary:hover { background: var(--blue-100); }
+    #qrcode { display: flex; justify-content: center; margin-top: 16px; background: #fff; padding: 16px; border-radius: 10px; }
+    .row { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+    .row:last-child { border-bottom: none; }
+    .status-label { font-weight: 500; }
+    .ok { color: var(--success); } .warn { color: var(--warning); } .err { color: var(--error); }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+    .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+    .modal-content { background: #fff; border-radius: 16px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; display: flex; flex-direction: column; transform: scale(0.95); transition: transform 0.3s ease; }
+    .modal-overlay.visible .modal-content { transform: scale(1); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-header .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light); }
+    .search-input { margin-bottom: 16px; }
+    .item-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+    .item-list li { display: flex; align-items: center; padding: 12px; border-radius: 10px; cursor: pointer; transition: background-color 0.2s ease; animation: slideInUp 0.5s ease-out both; }
+    .item-list li:hover { background-color: var(--blue-50); }
+    .item-list img { width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; background-color: var(--border-color); }
+    .item-info { flex-grow: 1; }
+    .item-info .name { font-weight: 700; }
+    .item-info .sub { font-size: 0.875rem; color: var(--text-light); }
+    .details-btn { width:auto; padding: 4px 10px; font-size: 12px; }
+
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text-dark); color: white; padding: 12px 24px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 2000; animation: slideInUp 0.3s ease-out, slideOutDown 0.3s ease-in 3s forwards; }
+    .toast.success { background: var(--success); } .toast.error { background: var(--error); }
+    
+    .admin-button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background-color: var(--blue-50); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 10px; text-decoration: none; font-weight: 500; transition: all 0.2s ease; }
+    .admin-button:hover { background-color: var(--blue-100); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h1 style="margin-bottom: 0;">Doctor Console</h1>
+      <a href="./doctor_admin_history.html" class="admin-button">&#9881; Go to Admin Panel</a>
+    </div>
+    
+    <div class="card">
+      <h2>Create One-Time Ticket</h2>
+      <div class="grid">
+        <div><label>Device ID</label><input id="device_id" value="device-01"></div>
+        <div><label>Bin ID</label><input id="bin_id" type="number" value="1"></div>
+      </div>
+      <div class="grid">
+        <div><label>Units</label><input id="units" type="number" value="1"></div>
+        <div><label>TTL (seconds)</label><input id="ttl" type="number" value="300"></div>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Patient ID</label>
+          <div style="display: flex; gap: 8px;">
+            <input id="patient_id" readonly style="background: #f8f9fa;">
+            <button id="selectPatientBtn" class="btn-secondary" style="width: auto; padding: 0 16px;">Select</button>
+          </div>
+        </div>
+        <div>
+          <label>Medicine ID</label>
+          <div style="display: flex; gap: 8px;">
+            <input id="med_id" readonly style="background: #f8f9fa;">
+            <button id="selectMedBtn" class="btn-secondary" style="width: auto; padding: 0 16px;">Select</button>
+          </div>
+        </div>
+      </div>
+      <button id="create">Create Ticket</button>
+      <div id="qrcode"></div>
+    </div>
+
+    <div class="card">
+      <h2>Live Status</h2>
+      <div class="row"><div class="status-label">Ticket:</div><div id="s_ticket" class="muted">—</div></div>
+      <div class="row"><div class="status-label">PIN:</div><div id="s_pin" class="muted">—</div></div>
+      <div class="row"><div class="status-label">Ticket used?</div><div id="s_used" class="warn">waiting…</div></div>
+      <div class="row"><div class="status-label">Job status:</div><div id="s_job" class="warn">waiting…</div></div>
+    </div>
+  </div>
+
+  <div id="patientModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Select Patient</h2><button id="closePatientModalBtn" class="close-btn">&times;</button></div>
+      <input id="patientSearch" placeholder="Search by name or HN..." class="search-input">
+      <ul id="patientList" class="item-list"></ul>
+    </div>
+  </div>
+
+  <div id="medicineModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h2>Select Medicine</h2><button id="closeMedicineModalBtn" class="close-btn">&times;</button></div>
+      <input id="medicineSearch" placeholder="Search by name or code..." class="search-input">
+      <ul id="medicineList" class="item-list"></ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import QRCode from "https://esm.sh/qrcode@1.5.3";
+    const FUNCTION_BASE = 'https://gzdxnkejgebiwraxoakl.functions.supabase.co/functions/v1';
+    const ANON_KEY      = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6ZHhua2VqZ2ViaXdyYXhvYWtsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njc4NTEyMCwiZXhwIjoyMDcyMzYxMTIwfQ.Q1gJCoj-9JoTy6dU4pyNZV0OuId-6QmBr6lOC_ZCPcQ";
+    const ADMIN_KEY     = "5hV3ustv_cimu_kK5X9LZ24uUWllTsa1UnJG2NRFbZV5li0PKjDR-ne58zW1YMio";
+
+    const headers = { "Authorization": `Bearer ${ANON_KEY}`, "Content-Type":"application/json" };
+    const $ = id => document.getElementById(id);
+
+    let current = { ticket_id:null, job_id:null, otp:null, poll:null };
+    let allPatients = [];
+    let allMedicines = [];
+
+    function setText(id, text, cls){ const el=$(id); el.textContent=text; if(cls) el.className=cls; }
+    
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.remove() }, 3300);
+    }
+
+    $("create").onclick = async () => {
+      const payload = {
+        admin_key: ADMIN_KEY,
+        device_id: $("device_id").value.trim(),
+        bin_id: parseInt($("bin_id").value,10),
+        units: parseInt($("units").value,10),
+        ttl_seconds: parseInt($("ttl").value,10),
+        patient_id: $("patient_id").value.trim() || null,
+        med_id: $("med_id").value.trim() || null,
+      };
+      showToast("Creating ticket...", "info");
+      try {
+        const r = await fetch(`${FUNCTION_BASE}/create_ticket`, { method:"POST", headers, body: JSON.stringify(payload) });
+        const j = await r.json();
+        if(!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+        current = { ticket_id:j.ticket_id, job_id:j.job_id, otp:j.otp, poll: current.poll };
+        showToast(`Success! PIN: ${j.otp}`, "success");
+        setText("s_ticket", j.ticket_id);
+        setText("s_pin", j.otp);
+        setText("s_used", "waiting…", "warn");
+        setText("s_job", "queued", "warn");
+        $("qrcode").innerHTML = "";
+        QRCode.toCanvas(`ticket:${j.ticket_id}|otp:${j.otp}`, { width: 220 }, (err, canvas)=>{
+          if(err) $("qrcode").textContent = `${j.ticket_id} | PIN ${j.otp}`; else $("qrcode").appendChild(canvas);
+        });
+        startPolling();
+      } catch(e) { 
+        showToast("Error: " + e.message, "error");
+        stopPolling();
+      }
+    };
+
+    function startPolling(){
+      stopPolling();
+      current.poll = setInterval(async ()=>{
+        if(!current.ticket_id) return;
+        try{
+          const r = await fetch(`${FUNCTION_BASE}/admin_get_status`, { method:"POST", headers,
+            body: JSON.stringify({ admin_key: ADMIN_KEY, ticket_id: current.ticket_id }) });
+          const j = await r.json();
+          if(!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+          setText("s_used", j.ticket?.used ? "YES" : "waiting…", j.ticket?.used ? "ok" : "warn");
+          setText("s_job", j.job?.status || 'unknown', j.job?.status==="completed"? "ok" : (j.job?.status==="failed"? "err":"warn"));
+        }catch(e){ setText("s_job", "error", "err"); }
+      }, 2000);
+    }
+    function stopPolling(){ if(current.poll){ clearInterval(current.poll); current.poll=null; } }
+
+    // --- Patient Modal Logic ---
+    const patientModal = $("patientModal");
+    $("selectPatientBtn").addEventListener("click", async () => {
+      patientModal.classList.add("visible");
+      $("patientList").innerHTML = '<li>Loading...</li>';
+      try {
+        const r = await fetch(`${FUNCTION_BASE}/admin_list_patients`, { method: "POST", headers, body: JSON.stringify({ admin_key: ADMIN_KEY, limit: 200 }) });
+        const j = await r.json();
+        if (!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+        allPatients = j.items || [];
+        renderPatientList(allPatients);
+      } catch (e) { $("patientList").innerHTML = `<li>Error: ${e.message}</li>`; }
+    });
+    
+    // START: Added missing function
+    const renderPatientList = (patients) => {
+      const list = $("patientList");
+      list.innerHTML = "";
+      if (patients.length === 0) { list.innerHTML = '<li>No patients found.</li>'; return; }
+      
+      patients.forEach((p, index) => {
+        const li = document.createElement("li");
+        li.style.animationDelay = `${index * 50}ms`;
+        li.dataset.id = p.id;
+
+        li.innerHTML = `
+          <img src="https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(p.display_name)}" alt="Avatar">
+          <div class="item-info">
+            <div class="name">${p.display_name}</div>
+            <div class="sub">HN: ${p.hn || 'N/A'}</div>
+          </div>
+          <button class="details-btn btn-secondary">Details</button>
+        `;
+
+        li.addEventListener("click", () => { 
+          $("patient_id").value = p.id; 
+          patientModal.classList.remove("visible"); 
+        });
+
+        li.querySelector('.details-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const patient = allPatients.find(pat => pat.id === p.id);
+          const details = patient?.notes || 'No details provided.';
+          alert(`Patient Details for ${patient?.display_name}:\n\n${details}`);
+        });
+
+        list.appendChild(li);
+      });
+    }
+    // END: Added missing function
+
+    $("patientSearch").addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = allPatients.filter(p => (p.display_name?.toLowerCase().includes(query)) || (p.hn?.toLowerCase().includes(query)));
+        renderPatientList(filtered);
+    });
+    $("closePatientModalBtn").addEventListener("click", () => patientModal.classList.remove("visible"));
+    
+    // --- Medicine Modal Logic ---
+    const medicineModal = $("medicineModal");
+    $("selectMedBtn").addEventListener("click", async () => {
+      medicineModal.classList.add("visible");
+      $("medicineList").innerHTML = '<li>Loading...</li>';
+      try {
+        const r = await fetch(`${FUNCTION_BASE}/admin_list_medicines`, { method: "POST", headers, body: JSON.stringify({ admin_key: ADMIN_KEY, limit: 500 }) });
+        const j = await r.json();
+        if (!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+        allMedicines = j.items || [];
+        renderMedicineList(allMedicines);
+      } catch (e) { $("medicineList").innerHTML = `<li>Error: ${e.message}</li>`; }
+    });
+    
+    // START: Added missing function
+    const renderMedicineList = (medicines) => {
+        const list = $("medicineList");
+        list.innerHTML = "";
+        if (medicines.length === 0) { list.innerHTML = '<li>No medicines found.</li>'; return; }
+        medicines.forEach((m, index) => {
+            const li = document.createElement("li");
+            li.style.animationDelay = `${index * 50}ms`;
+            li.innerHTML = `<img src="https://api.dicebear.com/8.x/shapes/svg?seed=${encodeURIComponent(m.name)}" alt="Avatar"><div class="item-info"><div class="name">${m.name}</div><div class="sub">${m.form || ''} ${m.strength || ''}</div></div>`;
+            li.addEventListener("click", () => { $("med_id").value = m.id; medicineModal.classList.remove("visible"); });
+            list.appendChild(li);
+        });
+    };
+    // END: Added missing function
+
+    $("medicineSearch").addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = allMedicines.filter(m => (m.name?.toLowerCase().includes(query)) || (m.code?.toLowerCase().includes(query)));
+        renderMedicineList(filtered);
+    });
+    $("closeMedicineModalBtn").addEventListener("click", () => medicineModal.classList.remove("visible"));
+
+  </script>
+</body>
+</html>

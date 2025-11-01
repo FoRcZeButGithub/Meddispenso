@@ -1,0 +1,66 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ใช้อินเทอร์เน็ตสำหรับเรียก Supabase / OAuth -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="patient_app"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+
+        <!-- กิจกรรมหลักของ Flutter (โค้ดคุณระบุเป็น .MainActivity อยู่แล้ว) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <!-- ธีมพื้นหลังตอน Flutter กำลัง bootstrap -->
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <!-- ตัวเริ่มแอป -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 🔑 Deep Link สำหรับ Supabase OAuth callback
+                 ต้องตรงกับ Allowed Redirect URL ใน Supabase:
+                 io.supabase.meddispenso://login-callback/ -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="io.supabase.meddispenso"
+                    android:host="login-callback" />
+            </intent-filter>
+
+            <!-- ถ้าคุณใช้เส้นทาง (path) เพิ่มเติม สามารถใส่ pathPrefix ได้
+                 <data android:scheme="io.supabase.meddispenso"
+                       android:host="login-callback"
+                       android:pathPrefix="/" /> -->
+        </activity>
+
+        <!-- ห้ามลบ: ให้ Flutter tool gen registrant ได้ -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+    </application>
+
+    <!-- ใช้โดย Flutter engine สำหรับ ACTION_PROCESS_TEXT -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
+</manifest>

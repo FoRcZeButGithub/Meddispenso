@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meddispenso Patient Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="app" class="w-full">
+        <div id="initial-loader" class="text-center">
+            <div class="loader mx-auto"></div>
+            <p class="mt-4 text-lg text-gray-600">Initializing...</p>
+        </div>
+    </div>
+    
+    <div id="qrModal" class="modal hidden">
+        </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Doctor Console — Create Ticket & Live Status</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<style>
+  :root{--ink:#111;--muted:#666;--bd:#e5e7eb;}
+  body{font-family:system-ui,Segoe UI,Arial;margin:0;padding:24px;max-width:880px;color:var(--ink);}
+  h1{font-size:1.25rem;margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .card{border:1px solid var(--bd);border-radius:14px;padding:16px;margin:12px 0;background:#fff}
+  label{display:block;margin:8px 0 4px}
+  input,button{padding:10px;border:1px solid var(--bd);border-radius:10px;width:100%}
+  button{cursor:pointer;background:#111;color:#fff}
+  .muted{color:var(--muted);font-size:12px}
+  pre{background:#f8fafc;border:1px solid var(--bd);padding:12px;border-radius:10px;overflow:auto}
+  #qrcode{display:flex;justify-content:center;margin-top:8px}
+  .row{display:flex;gap:12px;align-items:center}
+  .ok{color:#16a34a} .warn{color:#ca8a04} .err{color:#dc2626}
+</style>
+
+<div class="card">
+  <h1>Create One-Time Ticket</h1>
+  <div class="grid">
+    <div><label>Device ID</label><input id="device_id" value="device-01"></div>
+    <div><label>Bin ID</label><input id="bin_id" type="number" value="1"></div>
+  </div>
+  <div class="grid">
+    <div><label>Units</label><input id="units" type="number" value="1"></div>
+    <div><label>TTL (seconds)</label><input id="ttl" type="number" value="300"></div>
+  </div>
+  <div class="grid">
+    <div><label>Patient ID (optional)</label><input id="patient_id"></div>
+    <div><label>Medicine ID (optional)</label><input id="med_id"></div>
+  </div>
+  <button id="create">Create Ticket</button>
+  <div class="row" style="margin-top:8px">
+    <button id="copyPin" style="width:auto">Copy PIN</button>
+    <button id="copyTicket" style="width:auto">Copy Ticket ID</button>
+  </div>
+  <pre id="out">Ready.</pre>
+  <div id="qrcode"></div>
+  <div class="muted">Demo only: this page embeds ADMIN_KEY. Protect behind VPN/basic-auth in real deployments.</div>
+</div>
+
+<div class="card">
+  <h1>Live Status</h1>
+  <div class="row"><div>Ticket:</div><div id="s_ticket" class="muted">—</div></div>
+  <div class="row"><div>PIN:</div><div id="s_pin" class="muted">—</div></div>
+  <div class="row"><div>Ticket used?</div><div id="s_used" class="warn">waiting…</div></div>
+  <div class="row"><div>Job status:</div><div id="s_job" class="warn">waiting…</div></div>
+  <div class="row"><div>Last event:</div><div id="s_evt" class="muted">—</div></div>
+  <div class="row"><div>Expires:</div><div id="s_exp" class="muted">—</div></div>
+  <div class="row" style="margin-top:8px">
+    <button id="check" style="width:auto">Check Now</button>
+    <button id="togglePoll" style="width:auto">Pause</button>
+  </div>
+  <div id="timeline" class="muted" style="margin-top:8px"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="module">
+// ===== CONFIG =====
+const FUNCTION_BASE = "https://gzdxnkejgebiwraxoakl.functions.supabase.co/functions/v1"; // <-- change if needed
+const ANON_KEY      = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6ZHhua2VqZ2ViaXdyYXhvYWtsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njc4NTEyMCwiZXhwIjoyMDcyMzYxMTIwfQ.Q1gJCoj-9JoTy6dU4pyNZV0OuId-6QmBr6lOC_ZCPcQ";      // Settings → API → anon
+const ADMIN_KEY     = "5hV3ustv_cimu_kK5X9LZ24uUWllTsa1UnJG2NRFbZV5li0PKjDR-ne58zW1YMio";     // same as Functions secret
+
+const headers = { "Authorization": `Bearer ${ANON_KEY}`, "Content-Type":"application/json" };
+const $ = id => document.getElementById(id);
+
+// Ensure QR library is available in module scope
+let QR = (typeof window !== 'undefined') ? (window.QRCode || null) : null;
+if (!QR) {
+  // Fallback to ESM build if global wasn't defined (e.g., CDN blocked or module scoping)
+  QR = (await import('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.esm.js')).default;
+}
+
+let current = { ticket_id:null, job_id:null, otp:null, poll:null, expiresAt:null };
+
+function setText(id, text, cls){ const el=$(id); el.textContent=text; if(cls) el.className=cls; }
+
+$("create").onclick = async () => {
+  const payload = {
+    admin_key: ADMIN_KEY,
+    device_id: $("device_id").value.trim(),
+    bin_id: parseInt($("bin_id").value,10),
+    units: parseInt($("units").value,10),
+    ttl_seconds: parseInt($("ttl").value,10),
+    patient_id: $("patient_id").value.trim() || null,
+    med_id: $("med_id").value.trim() || null,
+  };
+  $("out").textContent = "Creating…";
+  try{
+    const r = await fetch(`${FUNCTION_BASE}/create_ticket`, { method:"POST", headers, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+    current = { ticket_id:j.ticket_id, job_id:j.job_id, otp:j.otp, poll: current.poll };
+    $("out").textContent = `PIN: ${j.otp}
+Ticket: ${j.ticket_id}
+Job: ${j.job_id}`;
+setText("s_ticket", j.ticket_id);
+setText("s_pin", j.otp);
+setText("s_used", "waiting…", "warn");
+setText("s_job", "queued", "warn");
+setText("s_evt", "create");
+$("qrcode").innerHTML = "";
+QR.toCanvas(`ticket:${j.ticket_id}|otp:${j.otp}`, { width: 220 }, (err, canvas)=>{
+  if(err) $("qrcode").textContent = `${j.ticket_id} | PIN ${j.otp}`; else $("qrcode").appendChild(canvas);
+});
+// countdown
+const ttl = parseInt($("ttl").value,10)||300;
+current.expiresAt = new Date(Date.now()+ttl*1000);
+setText("s_exp", current.expiresAt.toISOString(), "muted");
+startCountdown();
+startPolling();
+  }catch(e){ $("out").textContent = "Error: "+ e.message; stopPolling(); }
+};
+
+$("copyPin").onclick = ()=> { if(current.otp) navigator.clipboard.writeText(current.otp); };
+$("copyTicket").onclick = ()=> { if(current.ticket_id) navigator.clipboard.writeText(current.ticket_id); };
+$("check").onclick = ()=> { manualCheck(); };
+$("togglePoll").onclick = ()=> {
+  if (current.poll) { stopPolling(); $("togglePoll").textContent = "Resume"; }
+  else { startPolling(); $("togglePoll").textContent = "Pause"; }
+};
+
+function startPolling(){
+  stopPolling();
+  current.poll = setInterval(async ()=>{
+    if(!current.ticket_id) return;
+    try{
+      const r = await fetch(`${FUNCTION_BASE}/admin_get_status`, { method:"POST", headers,
+        body: JSON.stringify({ admin_key: ADMIN_KEY, ticket_id: current.ticket_id }) });
+      const j = await r.json();
+      if(!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+      const used = !!j.ticket?.used;
+      const st = j.job?.status || 'unknown';
+      const last = (j.events && j.events.length) ? j.events[j.events.length-1] : null;
+      setText("s_used", used? "YES" : "waiting…", used? "ok" : "warn");
+      setText("s_job", st, st==="completed"? "ok" : (st==="failed"? "err":"warn"));
+      setText("s_evt", last? `${last.event} @ ${last.created_at}` : "—");
+      if(st==="completed" || st==="failed") stopPolling();
+    }catch(e){ setText("s_job", "error", "err"); }
+  }, 2000);
+}
+function stopPolling(){ if(current.poll){ clearInterval(current.poll); current.poll=null; } }
+// ---- helpers added ----
+function renderTimeline(evts){
+  const el = document.getElementById("timeline"); if(!el) return;
+  if(!evts || !evts.length){ el.textContent = "—"; return; }
+  el.innerHTML = evts.map(e=>`<div>• ${e.event} @ ${e.created_at}</div>`).join("");
+}
+async function manualCheck(){
+  try{
+    const r = await fetch(`${FUNCTION_BASE}/admin_get_status`, { method:"POST", headers,
+      body: JSON.stringify({ admin_key: ADMIN_KEY, ticket_id: current.ticket_id, job_id: current.job_id }) });
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error || r.statusText);
+    const used = !!(j.ticket && j.ticket.used);
+    const st = j.job?.status || 'unknown';
+    const last = (j.events && j.events.length) ? j.events[j.events.length-1] : null;
+    setText("s_used", used? "YES" : "waiting…", used? "ok" : "warn");
+    setText("s_job", st, st==="completed"? "ok" : (st==="failed"? "err":"warn"));
+    setText("s_evt", last? `${last.event} @ ${last.created_at}` : "—");
+    renderTimeline(j.events);
+  }catch(e){ $("out").textContent = "Status error: "+ e.message; }
+}
+let expTimer=null; function startCountdown(){
+  if(expTimer){ clearInterval(expTimer); expTimer=null; }
+  const el = document.getElementById("s_exp"); if(!el || !current.expiresAt) return;
+  function fmt(ms){ const s=Math.max(0,Math.floor(ms/1000)); const m=Math.floor(s/60), ss=s%60; return `${m}m ${ss}s`; }
+  expTimer = setInterval(()=>{
+    const ms = current.expiresAt.getTime() - Date.now();
+    if (ms<=0){ el.textContent = "expired"; el.className="err"; clearInterval(expTimer); expTimer=null; return; }
+    el.textContent = fmt(ms);
+  }, 1000);
+}
+</script>

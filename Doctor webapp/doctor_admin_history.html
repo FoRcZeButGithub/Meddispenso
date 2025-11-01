@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Doctor Admin — History / Patients / Medicines</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;700&display=swap" rel="stylesheet">
+  <script>
+    // การตั้งค่า Theme สีฟ้าพาสเทลให้กับ Tailwind CSS
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+          },
+          colors: {
+            pastel: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              400: '#74C1ED', // Main accent
+              600: '#38bdf8',
+              800: '#0369a1',
+              900: '#0c4a6e'  // Dark text
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar for better look */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+
+<body class="bg-pastel-50 text-pastel-900">
+  <div class="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+    <header class="mb-6">
+      <h1 class="text-3xl font-extrabold tracking-tight text-pastel-900">Doctor Admin</h1>
+      <p class="text-slate-500 mt-1">History • Tickets • Patients • Medicines</p>
+    </header>
+
+    <div class="flex flex-wrap gap-2 mb-6 border-b border-slate-200">
+      <button data-tab="history"  class="tab px-4 py-2 rounded-t-lg font-semibold border-b-2 border-pastel-400 text-pastel-400">History</button>
+      <button data-tab="tickets"  class="tab px-4 py-2 rounded-t-lg font-semibold border-b-2 border-transparent text-slate-500 hover:text-pastel-400">Tickets</button>
+      <button data-tab="patients" class="tab px-4 py-2 rounded-t-lg font-semibold border-b-2 border-transparent text-slate-500 hover:text-pastel-400">Patients</button>
+      <button data-tab="meds"     class="tab px-4 py-2 rounded-t-lg font-semibold border-b-2 border-transparent text-slate-500 hover:text-pastel-400">Medicines</button>
+    </div>
+
+    <section id="panel-history" class="panel">
+      <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-2xl font-semibold">Dispense History</h2>
+        <button id="reloadHistory" class="px-4 py-2 rounded-lg bg-pastel-900 text-white text-sm font-semibold shadow-sm hover:bg-pastel-800 transition">Reload</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-pastel-50 text-pastel-900">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Job</th>
+              <th class="text-left px-4 py-3 font-semibold">Patient</th>
+              <th class="text-left px-4 py-3 font-semibold">Medicine</th>
+              <th class="text-left px-4 py-3 font-semibold">Units</th>
+              <th class="text-left px-4 py-3 font-semibold">Bin(MI/SPU)</th>
+              <th class="text-left px-4 py-3 font-semibold">Status</th>
+              <th class="text-left px-4 py-3 font-semibold">Created</th>
+              <th class="text-left px-4 py-3 font-semibold">Completed</th>
+            </tr>
+          </thead>
+          <tbody id="historyRows" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-tickets" class="panel hidden">
+       <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-2xl font-semibold">Tickets</h2>
+        <button id="reloadTickets" class="px-4 py-2 rounded-lg bg-pastel-900 text-white text-sm font-semibold shadow-sm hover:bg-pastel-800 transition">Reload</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-pastel-50 text-pastel-900">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Ticket</th>
+              <th class="text-left px-4 py-3 font-semibold">Device</th>
+              <th class="text-left px-4 py-3 font-semibold">Used?</th>
+              <th class="text-left px-4 py-3 font-semibold">Expires</th>
+              <th class="text-left px-4 py-3 font-semibold">Created</th>
+            </tr>
+          </thead>
+          <tbody id="ticketRows" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-patients" class="panel hidden">
+      <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-2xl font-semibold">Patients</h2>
+        <button id="reloadPatients" class="px-4 py-2 rounded-lg bg-pastel-900 text-white text-sm font-semibold shadow-sm hover:bg-pastel-800 transition">Reload</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-pastel-50 text-pastel-900">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Patient</th>
+              <th class="text-left px-4 py-3 font-semibold">HN</th>
+              <th class="text-left px-4 py-3 font-semibold">Phone</th>
+              <th class="text-left px-4 py-3 font-semibold">Created</th>
+            </tr>
+          </thead>
+          <tbody id="patientRows" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-meds" class="panel hidden">
+      <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-2xl font-semibold">Manage Medicines</h2>
+        <button id="reloadMeds" class="px-4 py-2 rounded-lg bg-pastel-900 text-white text-sm font-semibold shadow-sm hover:bg-pastel-800 transition">Reload</button>
+      </div>
+
+      <form id="medForm" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 bg-white border border-slate-200 rounded-lg p-4 shadow-md">
+        <input type="hidden" id="med_id">
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Name</label>
+          <input id="med_name" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="Amoxicillin 500 mg" required/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Code (optional)</label>
+          <input id="med_code" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="e.g. AMOX500"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Form</label>
+          <input id="med_form" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="tab / cap / syrup"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Strength</label>
+          <input id="med_strength" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="500 mg"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Unit</label>
+          <input id="med_unit" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="tablet" value="unit"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Stock (optional)</label>
+          <input id="med_stock" type="number" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="e.g. 120"/>
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Description / Notes</label>
+          <textarea id="med_desc" rows="3" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50" placeholder="รายละเอียดเพิ่มเติม เช่น สี กลิ่น ขนาดบรรจุ ฯลฯ"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 mb-1 block">Instruction</label>
+          <select id="med_when" class="w-full border-slate-300 rounded-md shadow-sm focus:border-pastel-400 focus:ring focus:ring-pastel-200 focus:ring-opacity-50">
+            <option value="">-- select --</option>
+            <option value="before_meal">ก่อนอาหาร</option>
+            <option value="after_meal">หลังอาหาร</option>
+            <option value="with_food">พร้อมอาหาร</option>
+            <option value="bedtime">ก่อนนอน</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2 md:col-span-2 lg:col-span-3">
+          <button class="px-5 py-2 rounded-lg bg-pastel-400 text-white font-semibold shadow-sm hover:bg-pastel-600 transition" type="submit">Save</button>
+          <button class="px-5 py-2 rounded-lg bg-slate-200 text-slate-800 font-semibold hover:bg-slate-300 transition" type="button" id="medReset">Reset</button>
+        </div>
+      </form>
+
+      <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-pastel-50 text-pastel-900">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Name</th>
+              <th class="text-left px-4 py-3 font-semibold">Code</th>
+              <th class="text-left px-4 py-3 font-semibold">Form/Strength</th>
+              <th class="text-left px-4 py-3 font-semibold">Unit</th>
+              <th class="text-left px-4 py-3 font-semibold">When</th>
+              <th class="text-left px-4 py-3 font-semibold">Stock</th>
+              <th class="text-left px-4 py-3 font-semibold">Updated</th>
+              <th class="text-left px-4 py-3 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="medRows" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+<script type="module">
+  // --- JAVASCRIPT เดิมทั้งหมด ไม่มีการเปลี่ยนแปลง ---
+  const FUNCTION_BASE = 'https://gzdxnkejgebiwraxoakl.functions.supabase.co/functions/v1';
+  const ANON_KEY      = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6ZHhua2VqZ2ViaXdyYXhvYWtsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Njc4NTEyMCwiZXhwIjoyMDcyMzYxMTIwfQ.Q1gJCoj-9JoTy6dU4pyNZV0OuId-6QmBr6lOC_ZCPcQ';
+  const ADMIN_KEY     = '5hV3ustv_cimu_kK5X9LZ24uUWllTsa1UnJG2NRFbZV5li0PKjDR-ne58zW1YMio';
+
+  const H = { Authorization:`Bearer ${ANON_KEY}`, 'Content-Type':'application/json' };
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  function timeAgo(iso) {
+    if(!iso) return '—';
+    const sec = Math.floor((Date.now()-Date.parse(iso))/1000);
+    if (sec < 60)  return `${sec}s ago`;
+    const m = Math.floor(sec/60);  if (m < 60)  return `${m}m ago`;
+    const h = Math.floor(m/60);    if (h < 24)  return `${h}h ago`;
+    const d = Math.floor(h/24);    if (d < 7)   return `${d}d ago`;
+    return new Date(iso).toLocaleString();
+  }
+  const fmtId = id => id ? id.slice(0,8)+'…'+id.slice(-4) : '—';
+  const safe = s => (s==null||s==='') ? '—' : s;
+
+  function activate(tab){
+    $$('.tab').forEach(b=> {
+      const isSelected = b.dataset.tab === tab;
+      b.classList.toggle('border-pastel-400', isSelected);
+      b.classList.toggle('text-pastel-400', isSelected);
+      b.classList.toggle('border-transparent', !isSelected);
+      b.classList.toggle('text-slate-500', !isSelected);
+    });
+    $$('.panel').forEach(p=> p.classList.add('hidden'));
+    $('#panel-'+tab).classList.remove('hidden');
+  }
+  $$('.tab').forEach(b=> b.addEventListener('click', ()=> activate(b.dataset.tab)));
+
+  async function post(path, body){
+    const r = await fetch(`${FUNCTION_BASE}/${path}`, {method:'POST', headers:H, body: JSON.stringify(body)});
+    const j = await r.json().catch(()=> ({}));
+    if (!r.ok || j.ok===false) throw new Error(j.error || r.statusText);
+    return j;
+  }
+
+  // ---------- History ----------
+  async function loadHistory(){
+    const rows = $('#historyRows'); rows.innerHTML = '<tr class="odd:bg-white even:bg-slate-50"><td colspan="8" class="text-center p-4">Loading...</td></tr>';
+    const j = await post('admin_list_history', { admin_key: ADMIN_KEY, limit: 100 });
+    rows.innerHTML = '';
+    for (const it of (j.items||[])) {
+      const tr = document.createElement('tr'); tr.className='odd:bg-white even:bg-pastel-50';
+      tr.innerHTML = `
+        <td class="px-4 py-2 font-mono">${fmtId(it.id)}</td>
+        <td class="px-4 py-2">${safe(it.patient_name)}</td>
+        <td class="px-4 py-2">${safe(it.medicine_name)}</td>
+        <td class="px-4 py-2 text-center">${it.units ?? '—'}</td>
+        <td class="px-4 py-2 text-center">${it.motor_index ?? '—'} / ${it.steps_per_unit ?? '—'}</td>
+        <td class="px-4 py-2"><span class="px-2 py-1 rounded-full text-xs font-medium ${it.status === 'completed' ? 'bg-green-100 text-green-800' : (it.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}">${safe(it.status)}</span></td>
+        <td class="px-4 py-2">${timeAgo(it.created_at)}</td>
+        <td class="px-4 py-2">${it.completed_at ? timeAgo(it.completed_at) : '—'}</td>
+      `;
+      rows.appendChild(tr);
+    }
+  }
+  $('#reloadHistory').onclick = loadHistory;
+
+  // ---------- Tickets ----------
+  async function loadTickets(){
+    const rows = $('#ticketRows'); rows.innerHTML = '<tr class="odd:bg-white even:bg-slate-50"><td colspan="5" class="text-center p-4">Loading...</td></tr>';
+    const j = await post('admin_list_tickets', { admin_key: ADMIN_KEY, limit: 100 });
+    rows.innerHTML = '';
+    for (const t of (j.items||[])) {
+      const tr = document.createElement('tr'); tr.className='odd:bg-white even:bg-pastel-50';
+      const used = t.used ? '<span class="text-green-600 font-semibold">YES</span>' : '<span class="text-yellow-600">NO</span>';
+      tr.innerHTML = `
+        <td class="px-4 py-2 font-mono">${fmtId(t.id)}</td>
+        <td class="px-4 py-2">${t.device_id}</td>
+        <td class="px-4 py-2">${used}</td>
+        <td class="px-4 py-2">${timeAgo(t.expires_at)}</td>
+        <td class="px-4 py-2">${timeAgo(t.created_at)}</td>
+      `;
+      rows.appendChild(tr);
+    }
+  }
+  $('#reloadTickets').onclick = loadTickets;
+
+  // ---------- Patients ----------
+  async function loadPatients(){
+    const rows = $('#patientRows'); rows.innerHTML = '<tr class="odd:bg-white even:bg-slate-50"><td colspan="4" class="text-center p-4">Loading...</td></tr>';
+    const j = await post('admin_list_patients', { admin_key: ADMIN_KEY, limit: 200 });
+    rows.innerHTML = '';
+    for (const p of (j.items||[])) {
+      const tr = document.createElement('tr'); tr.className='odd:bg-white even:bg-pastel-50';
+      tr.innerHTML = `
+        <td class="px-4 py-2 font-semibold">${safe(p.display_name)}</td>
+        <td class="px-4 py-2">${safe(p.hn)}</td>
+        <td class="px-4 py-2">${safe(p.phone)}</td>
+        <td class="px-4 py-2">${timeAgo(p.created_at)}</td>
+      `;
+      rows.appendChild(tr);
+    }
+  }
+  $('#reloadPatients').onclick = loadPatients;
+
+  // ---------- Medicines (list + upsert + delete) ----------
+  function medFormVals() {
+    return {
+      id:        $('#med_id').value || null,
+      code:      $('#med_code').value.trim() || null,
+      name:      $('#med_name').value.trim(),
+      form:      $('#med_form').value.trim() || null,
+      strength:  $('#med_strength').value.trim() || null,
+      unit:      $('#med_unit').value.trim() || 'unit',
+      when:      $('#med_when').value || null,
+      stock:     $('#med_stock').value ? parseInt($('#med_stock').value,10) : null,
+      desc:      $('#med_desc').value.trim() || null,
+    };
+  }
+  function medFormFill(m){
+    $('#med_id').value = m.id || '';
+    $('#med_code').value = m.code || '';
+    $('#med_name').value = m.name || '';
+    $('#med_form').value = m.form || '';
+    $('#med_strength').value = m.strength || '';
+    $('#med_unit').value = m.unit || 'unit';
+    $('#med_when').value = m.take_when || '';
+    $('#med_stock').value = (m.stock ?? '').toString();
+    $('#med_desc').value  = m.description || '';
+  }
+
+  async function loadMeds(){
+    const rows = $('#medRows'); rows.innerHTML = '<tr class="odd:bg-white even:bg-slate-50"><td colspan="8" class="text-center p-4">Loading...</td></tr>';
+    const j = await post('admin_list_medicines', { admin_key: ADMIN_KEY, limit: 500 });
+    rows.innerHTML = '';
+    for (const m of (j.items||[])) {
+      const tr = document.createElement('tr'); tr.className='odd:bg-white even:bg-pastel-50';
+      tr.innerHTML = `
+        <td class="px-4 py-2 font-semibold">${m.name}</td>
+        <td class="px-4 py-2">${safe(m.code)}</td>
+        <td class="px-4 py-2">${safe(m.form)} ${safe(m.strength)}</td>
+        <td class="px-4 py-2">${safe(m.unit)}</td>
+        <td class="px-4 py-2">${safe(m.take_when)}</td>
+        <td class="px-4 py-2 text-center">${m.stock ?? '—'}</td>
+        <td class="px-4 py-2">${timeAgo(m.updated_at || m.created_at)}</td>
+        <td class="px-4 py-2">
+          <button class="px-3 py-1 rounded text-sm font-medium bg-slate-200 text-slate-800 hover:bg-slate-300 transition mr-2" data-edit="${m.id}">Edit</button>
+          <button class="px-3 py-1 rounded text-sm font-medium bg-rose-100 text-rose-800 hover:bg-rose-200 transition" data-del="${m.id}">Delete</button>
+        </td>
+      `;
+      rows.appendChild(tr);
+    }
+    rows.querySelectorAll('button[data-edit]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const id = b.getAttribute('data-edit');
+        const m  = (j.items||[]).find(x=>x.id===id);
+        if (m) medFormFill(m);
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    });
+    rows.querySelectorAll('button[data-del]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const id = b.getAttribute('data-del');
+        if (!confirm('Delete this medicine?')) return;
+        try {
+          await post('admin_delete_medicine', { admin_key: ADMIN_KEY, id });
+          await loadMeds();
+        } catch(e) {
+          alert('Error deleting: ' + e.message);
+        }
+      });
+    });
+  }
+
+  $('#medForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const payload = medFormVals();
+    if (!payload.name) { alert('Name required'); return; }
+    try {
+      await post('admin_upsert_medicine', { admin_key: ADMIN_KEY, ...payload });
+      $('#medForm').reset();
+      $('#med_id').value = '';
+      await loadMeds();
+    } catch(e) {
+      alert('Error saving: ' + e.message);
+    }
+  });
+  $('#medReset').onclick = ()=> { $('#medForm').reset(); $('#med_id').value=''; };
+
+  async function boot(){
+    activate('history');
+    await loadHistory();
+    // Pre-load others in background
+    loadTickets();
+    loadPatients();
+    loadMeds();
+  }
+  $('#reloadHistory').addEventListener('click', loadHistory);
+  $('#reloadTickets').addEventListener('click', loadTickets);
+  $('#reloadPatients').addEventListener('click', loadPatients);
+  $('#reloadMeds').addEventListener('click', loadMeds);
+  boot();
+</script>
+</body>
+</html>
